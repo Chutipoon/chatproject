@@ -1,0 +1,37 @@
+/* app/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@300;400;500;600;700&family=Sarabun:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+:root {
+  --cream:    #F5EFE0;
+  --parchment:#EDE3CC;
+  --gold:     #C8943A;
+  --gold-light:#E8B86D;
+  --amber:    #8B5E1A;
+  --saffron:  #D4791A;
+  --bark:     #3D2B1A;
+  --bark-mid: #5C3D20;
+  --mist:     #F9F4EA;
+  --ink:      #2A1F10;
+  --shadow:   rgba(61,43,26,0.12);
+  --lotus:    #B5736A;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Sarabun', sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--parchment); border-radius: 99px; }
+
+/* selection */
+::selection { background: var(--gold-light); color: var(--bark); }
