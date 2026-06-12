@@ -224,15 +224,46 @@ export default function DharmaChat() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, stream: true }),
       })
-      const data = await res.json()
 
-      setMessages(prev => prev.map(m =>
-        m.id === loadMsg.id
-          ? { ...m, loading: false, text: data.reply || data.error || "เกิดข้อผิดพลาด", provider: data.provider, cached: data.cached, sources: data.sources || [] }
-          : m
-      ))
+      // cache hit หรือ error → ตอบเป็น JSON ธรรมดา (ไม่ stream)
+      const ct = res.headers.get("content-type") || ""
+      if (!ct.includes("text/event-stream")) {
+        const data = await res.json()
+        setMessages(prev => prev.map(m =>
+          m.id === loadMsg.id
+            ? { ...m, loading: false, text: data.reply || data.error || "เกิดข้อผิดพลาด", provider: data.provider, cached: data.cached, sources: data.sources || [] }
+            : m
+        ))
+        return
+      }
+
+      // ---- consume SSE stream ----
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let acc = "", buf = "", srcs: Source[] = [], prov: string | undefined
+
+      const apply = (patch: Partial<Message>) =>
+        setMessages(prev => prev.map(m => m.id === loadMsg.id ? { ...m, ...patch } : m))
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split("\n")
+        buf = lines.pop() || ""
+        for (const line of lines) {
+          const t = line.trim()
+          if (!t.startsWith("data:")) continue
+          let evt: any
+          try { evt = JSON.parse(t.slice(5).trim()) } catch { continue }
+          if (evt.type === "sources") { srcs = evt.sources || []; apply({ sources: srcs }) }
+          else if (evt.type === "token") { acc += evt.text; apply({ loading: false, text: acc, sources: srcs }) }
+          else if (evt.type === "done") { prov = evt.provider; apply({ loading: false, text: acc, provider: prov, sources: srcs }) }
+          else if (evt.type === "error") { apply({ loading: false, text: evt.error || "เกิดข้อผิดพลาด" }) }
+        }
+      }
     } catch {
       setMessages(prev => prev.map(m =>
         m.id === loadMsg.id
