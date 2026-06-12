@@ -1,0 +1,14 @@
+name = "dharma-lb"
+main = "load-balancer.js"
+compatibility_date = "2024-11-01"
+
+# สร้าง KV: wrangler kv:namespace create "DHARMA_CACHE"
+# แล้วเอา id มาใส่ด้านล่าง
+[[kv_namespaces]]
+binding = "KV"
+id = "YOUR_KV_NAMESPACE_ID"
+
+[vars]
+# URL ของ Vercel backend (ใส่หลายตัวคั่น comma เพื่อ load balance)
+BACKEND_URLS = "https://your-app.vercel.app"
+ALLOWED_ORIGIN = "https://your-app.vercel.app"

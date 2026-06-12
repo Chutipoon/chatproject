@@ -1,18 +1,31 @@
-# ธรรมสหาย — ระดับ 3: Multi-provider Setup
+# ธรรมสหาย — ระดับ 4: Streaming + Shared Cache + Azure tier
 
 ## สถาปัตยกรรม
 
 ```
 ผู้ใช้ → Cloudflare Worker (edge cache + rate limit ฟรี 100k req/วัน)
            ↓
-        Vercel (Next.js backend)
+        Vercel (Next.js backend) — streaming SSE
            ↓
-        SuttaCentral API → ดึงพระสูตรจริง (ฟรี)
+        Upstash Redis ← cache + rate-limit แบบ shared ทุก instance
            ↓
-        Groq (Llama 3.3 70B) ← ลองก่อน
+        SuttaCentral RAG → full-text search + ดึงเนื้อสูตรจริง (ฟรี)
+           ↓
+        Azure OpenAI gpt-4o-mini ← คุณภาพสูง (ใช้ student credit)
+           ↓ ถ้า 429 / ไม่ตั้ง key
+        Groq (Llama 3.3 70B)
            ↓ ถ้า 429
-        Gemini Flash ← fallback
+        Gemini Flash ← fallback สุดท้าย
 ```
+
+> ลำดับ provider ปรับได้ผ่าน `PROVIDER_ORDER` (default `azure,groq,gemini`)
+> ตัวที่ไม่ตั้ง key จะถูกข้ามอัตโนมัติ — ไม่ตั้ง Azure ก็ยังฟรี 100%
+
+## สิ่งที่เปลี่ยนใน v4
+- **Streaming** — ตอบทีละ token (SSE) ผู้ใช้ไม่ต้องรอจนจบ
+- **Shared cache/rate-limit** — ย้ายจาก in-memory `Map` → Upstash Redis (แก้ปัญหา serverless แต่ละ instance แยกกัน)
+- **RAG จริง** — full-text search + ดึง segment text จริงจาก bilara API (เดิมดึงแค่ blurb)
+- **Azure OpenAI tier** — เพิ่มเป็น provider คุณภาพสูง ใช้ student credit
 
 ## ขั้นตอน Deploy
 
