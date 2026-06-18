@@ -158,10 +158,16 @@ async function readGeminiStream(res: Response, onToken: OnToken): Promise<string
 export async function routeToProvider(
   messages: ChatMessage[],
   systemPrompt: string,
-  onToken?: OnToken
+  onToken?: OnToken,
+  preferred?: string
 ): Promise<{ text: string; provider: string }> {
-  const order = (process.env.PROVIDER_ORDER || "azure,groq,gemini")
+  const baseOrder = (process.env.PROVIDER_ORDER || "azure,groq,gemini")
     .split(",").map((s) => s.trim()).filter(Boolean)
+
+  // ถ้าผู้ใช้เลือกโมเดล → ลองตัวนั้นก่อน แล้วค่อย fallback ตามลำดับเดิม
+  const order = preferred && baseOrder.includes(preferred)
+    ? [preferred, ...baseOrder.filter((p) => p !== preferred)]
+    : baseOrder
 
   const map: Record<string, (m: ChatMessage[], s: string, t?: OnToken) => Promise<string>> = {
     azure: callAzure, groq: callGroq, gemini: callGemini,
@@ -185,4 +191,21 @@ export async function routeToProvider(
   throw new Error(lastErr?.message === "RATE_LIMIT"
     ? "All providers rate-limited"
     : "All providers failed")
+}
+
+// รายชื่อโมเดลที่ "ตั้งค่าพร้อมใช้" (มี key) — ส่งให้ UI ทำ dropdown
+export function availableProviders(): { id: string; label: string }[] {
+  const labels: Record<string, string> = {
+    azure: "Azure GPT-4o-mini",
+    groq: "Groq Llama 3.3 70B",
+    gemini: "Gemini 2.0 Flash",
+  }
+  const configured: Record<string, boolean> = {
+    azure: Boolean(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_KEY && process.env.AZURE_OPENAI_DEPLOYMENT),
+    groq: Boolean(process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY),
+    gemini: Boolean(process.env.GEMINI_API_KEY),
+  }
+  const order = (process.env.PROVIDER_ORDER || "azure,groq,gemini")
+    .split(",").map((s) => s.trim()).filter(Boolean)
+  return order.filter((id) => configured[id]).map((id) => ({ id, label: labels[id] || id }))
 }

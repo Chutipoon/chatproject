@@ -2,15 +2,16 @@
 // เพิ่ม: streaming response (SSE), shared cache/rate-limit (Redis), Azure tier
 
 import { NextRequest, NextResponse } from "next/server"
-import { routeToProvider, ChatMessage } from "@/lib/providers"
+import { routeToProvider, availableProviders, ChatMessage } from "@/lib/providers"
 import { getCached, setCached, checkRateLimit } from "@/lib/cache"
 import { searchSutta, buildSystemPrompt } from "@/lib/suttacentral"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
 
+// GET → คืนรายชื่อโมเดลที่พร้อมใช้ (ให้ UI ทำ dropdown)
 export async function GET() {
-  return new NextResponse("Method Not Allowed", { status: 405 })
+  return NextResponse.json({ models: availableProviders() })
 }
 
 export async function POST(req: NextRequest) {
@@ -26,11 +27,12 @@ export async function POST(req: NextRequest) {
   }
 
   // parse
-  let messages: ChatMessage[], userMessage: string, wantStream = false
+  let messages: ChatMessage[], userMessage: string, wantStream = false, model: string | undefined
   try {
     const body = await req.json()
     messages = body.messages || []
     wantStream = body.stream !== false // default = stream
+    model = typeof body.model === "string" ? body.model : undefined // โมเดลที่ผู้ใช้เลือก
     userMessage = messages.findLast((m: ChatMessage) => m.role === "user")?.content || ""
     if (!userMessage) throw new Error("empty")
   } catch {
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
   // ---- non-stream path ----
   if (!wantStream) {
     try {
-      const { text, provider } = await routeToProvider(messages, systemPrompt)
+      const { text, provider } = await routeToProvider(messages, systemPrompt, undefined, model)
       await setCached(userMessage, text, provider)
       return NextResponse.json({ reply: text, provider, cached: false, sources })
     } catch (err: any) {
@@ -73,7 +75,8 @@ export async function POST(req: NextRequest) {
       try {
         const { text, provider } = await routeToProvider(
           messages, systemPrompt,
-          (chunk) => send({ type: "token", text: chunk })
+          (chunk) => send({ type: "token", text: chunk }),
+          model
         )
         await setCached(userMessage, text, provider)
         send({ type: "done", provider })

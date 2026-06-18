@@ -15,6 +15,28 @@ interface Message {
   sources?: Source[]
   loading?: boolean
 }
+interface Conversation {
+  id: string
+  title: string
+  messages: Message[]
+  updatedAt: number
+}
+
+const STORAGE_KEY = "dharma-chats-v1"
+const INTRO_TEXT =
+  "สวัสดีครับ ผมคือ ธรรมสหาย ผู้ช่วยด้านพุทธธรรมดิจิทัล\n\nท่านสามารถถามเรื่องธรรมะ ศีล สมาธิ ปัญญา หรือการนำหลักพุทธศาสนาไปใช้ในชีวิต ผมจะตอบโดยอ้างอิงพระไตรปิฎกและแหล่งที่มาจริงทุกครั้ง"
+
+const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+const introMessage = (): Message => ({ id: uid(), role: "bot", text: INTRO_TEXT })
+const newConversation = (): Conversation => ({
+  id: newId(), title: "แชตใหม่", messages: [introMessage()], updatedAt: Date.now(),
+})
+
+// ตั้งชื่อห้องจากคำถามแรกของผู้ใช้ (ตัดให้สั้น)
+function titleFrom(text: string): string {
+  const t = text.trim().replace(/\s+/g, " ")
+  return t.length <= 28 ? t : t.slice(0, 28) + "…"
+}
 
 const SUGGESTIONS = [
   "ทุกข์คืออะไร และเราพ้นทุกข์ได้อย่างไร",
@@ -187,15 +209,80 @@ function LotusStrip() {
 
 /* ── MAIN PAGE ──────────────────────────────────────────── */
 export default function DharmaChat() {
-  const [messages, setMessages] = useState<Message[]>([{
-    id: uid(), role: "bot",
-    text: "สวัสดีครับ ผมคือ ธรรมสหาย ผู้ช่วยด้านพุทธธรรมดิจิทัล\n\nท่านสามารถถามเรื่องธรรมะ ศีล สมาธิ ปัญญา หรือการนำหลักพุทธศาสนาไปใช้ในชีวิต ผมจะตอบโดยอ้างอิงพระไตรปิฎกและแหล่งที่มาจริงทุกครั้ง",
-  }])
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [activeId, setActiveId] = useState<string>("")
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(true)
+  const [models, setModels] = useState<{ id: string; label: string }[]>([])
+  const [selectedModel, setSelectedModel] = useState<string>("")
+  const [hydrated, setHydrated] = useState(false)
   const chatRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // โหลดประวัติแชตจาก localStorage (ครั้งแรก)
+  useEffect(() => {
+    let loaded: Conversation[] = []
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) loaded = JSON.parse(raw)
+    } catch { loaded = [] }
+    if (!Array.isArray(loaded) || loaded.length === 0) loaded = [newConversation()]
+    setConversations(loaded)
+    setActiveId(loaded[0].id)
+    setHydrated(true)
+  }, [])
+
+  // บันทึกทุกครั้งที่แชตเปลี่ยน
+  useEffect(() => {
+    if (!hydrated) return
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations)) } catch {}
+  }, [conversations, hydrated])
+
+  // โหลดรายชื่อโมเดลที่พร้อมใช้ (จาก backend)
+  useEffect(() => {
+    fetch("/api/chat")
+      .then(r => r.json())
+      .then(d => {
+        const list = d.models || []
+        setModels(list)
+        if (list.length > 0) setSelectedModel(list[0].id)
+      })
+      .catch(() => {})
+  }, [])
+
+  const active = conversations.find(c => c.id === activeId)
+  const messages = active?.messages ?? []
+
+  // อัปเดต messages ของห้องที่เปิดอยู่ (แทน setMessages เดิม)
+  const setMessages = useCallback((updater: (prev: Message[]) => Message[]) => {
+    setConversations(prev => prev.map(c =>
+      c.id === activeId ? { ...c, messages: updater(c.messages), updatedAt: Date.now() } : c
+    ))
+  }, [activeId])
+
+  const createChat = useCallback(() => {
+    const c = newConversation()
+    setConversations(prev => [c, ...prev])
+    setActiveId(c.id)
+    setShowSuggestions(true)
+    setInput("")
+  }, [])
+
+  const selectChat = useCallback((id: string) => {
+    setActiveId(id)
+    setShowSuggestions(false)
+  }, [])
+
+  const deleteChat = useCallback((id: string) => {
+    setConversations(prev => {
+      const rest = prev.filter(c => c.id !== id)
+      const next = rest.length > 0 ? rest : [newConversation()]
+      // ถ้าลบห้องที่เปิดอยู่ → เด้งไปห้องแรก
+      setActiveId(cur => (cur === id ? next[0].id : cur))
+      return next
+    })
+  }, [])
 
   const scrollBottom = useCallback(() => {
     setTimeout(() => chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" }), 50)
@@ -215,6 +302,13 @@ export default function DharmaChat() {
 
     setMessages(prev => [...prev, userMsg, loadMsg])
 
+    // ตั้งชื่อห้องจากคำถามแรก (ถ้ายังเป็น "แชตใหม่")
+    setConversations(prev => prev.map(c => {
+      if (c.id !== activeId) return c
+      const onlyIntro = c.messages.filter(m => m.role === "user").length === 0
+      return onlyIntro ? { ...c, title: titleFrom(q) } : c
+    }))
+
     // build conversation history (exclude loading)
     const history = [...messages, userMsg]
       .filter(m => !m.loading)
@@ -224,7 +318,7 @@ export default function DharmaChat() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, stream: true }),
+        body: JSON.stringify({ messages: history, stream: true, model: selectedModel || undefined }),
       })
 
       // cache hit หรือ error → ตอบเป็น JSON ธรรมดา (ไม่ stream)
@@ -273,7 +367,7 @@ export default function DharmaChat() {
     } finally {
       setLoading(false)
     }
-  }, [loading, messages])
+  }, [loading, messages, activeId, selectedModel, setMessages])
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input) }
@@ -337,37 +431,66 @@ export default function DharmaChat() {
             </div>
           </div>
 
-          {/* topics */}
-          <div style={{ padding: "16px 20px 8px" }}>
-            <div style={{ fontSize: 10.5, color: "var(--gold-light)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
-              หัวข้อยอดนิยม
+          {/* แชตใหม่ */}
+          <div style={{ padding: "16px 16px 8px" }}>
+            <button onClick={createChat}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                background: "linear-gradient(135deg,var(--saffron),var(--gold))",
+                border: "none", color: "#fff",
+                fontSize: 13.5, fontWeight: 500, fontFamily: "'Sarabun', sans-serif",
+                padding: "10px 14px", borderRadius: 10, cursor: "pointer",
+                boxShadow: "0 2px 10px rgba(212,121,26,0.3)",
+                transition: "filter 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.07)" }}
+              onMouseLeave={e => { e.currentTarget.style.filter = "none" }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> แชตใหม่
+            </button>
+          </div>
+
+          {/* รายการแชต */}
+          <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto" }}>
+            <div style={{ fontSize: 10.5, color: "var(--gold-light)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "8px 8px 8px" }}>
+              ประวัติการสนทนา
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {SUGGESTIONS.map((s, i) => (
-                <button key={i} onClick={() => send(s)}
-                  style={{
-                    background: "transparent", border: "none",
-                    color: "rgba(245,239,224,0.65)",
-                    fontSize: 12.5, textAlign: "left",
-                    padding: "7px 10px", borderRadius: 8, cursor: "pointer",
-                    lineHeight: 1.45,
-                    transition: "all 0.15s",
-                    fontFamily: "'Sarabun', sans-serif",
-                  }}
-                  onMouseEnter={e => {
-                    const el = e.currentTarget
-                    el.style.background = "rgba(200,148,58,0.15)"
-                    el.style.color = "var(--cream)"
-                  }}
-                  onMouseLeave={e => {
-                    const el = e.currentTarget
-                    el.style.background = "transparent"
-                    el.style.color = "rgba(245,239,224,0.65)"
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {[...conversations].sort((a, b) => b.updatedAt - a.updatedAt).map(c => {
+                const isActive = c.id === activeId
+                return (
+                  <div key={c.id}
+                    onClick={() => selectChat(c.id)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      background: isActive ? "rgba(200,148,58,0.18)" : "transparent",
+                      borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "rgba(200,148,58,0.08)" }}
+                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent" }}
+                  >
+                    <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.7 }}>☸</span>
+                    <span style={{
+                      flex: 1, fontSize: 12.5, lineHeight: 1.4,
+                      color: isActive ? "var(--cream)" : "rgba(245,239,224,0.65)",
+                      fontFamily: "'Sarabun', sans-serif",
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                    }}>{c.title}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteChat(c.id) }}
+                      aria-label="ลบแชต"
+                      style={{
+                        background: "transparent", border: "none", cursor: "pointer",
+                        color: "rgba(245,239,224,0.4)", fontSize: 14, lineHeight: 1,
+                        padding: "2px 4px", borderRadius: 4, flexShrink: 0,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = "var(--saffron)" }}
+                      onMouseLeave={e => { e.currentTarget.style.color = "rgba(245,239,224,0.4)" }}
+                    >×</button>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
@@ -419,6 +542,28 @@ export default function DharmaChat() {
             <span style={{ fontSize: 12, color: "var(--gold)", marginLeft: 4 }}>
               — อ้างอิงพระไตรปิฎกจริง
             </span>
+
+            {/* เลือกโมเดล / model picker */}
+            {models.length > 0 && (
+              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ fontSize: 11, color: "var(--gold)" }}>โมเดล</span>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  aria-label="เลือกโมเดล AI"
+                  style={{
+                    fontSize: 12, fontFamily: "inherit", color: "var(--bark)",
+                    background: "rgba(255,255,255,0.7)",
+                    border: "1px solid rgba(200,148,58,0.35)",
+                    borderRadius: 8, padding: "5px 10px", cursor: "pointer", outline: "none",
+                  }}
+                >
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </header>
 
           {/* chat messages */}
