@@ -98,14 +98,27 @@ async function callGemini(
   if (!res.ok) throw new Error(`Gemini error ${res.status}`)
   if (!onToken) {
     const data = await res.json()
-    return data.candidates[0].content.parts[0].text
+    return sanitizeText(data.candidates[0].content.parts[0].text)
   }
   return readGeminiStream(res, onToken)
 }
 
 // ---- helpers: parse non-stream / stream ----
+
+// Llama 3 (Groq) บางครั้งหลุดอักษรผิดสคริปต์ (จีน/เกาหลี/อาหรับ/เวียดนาม ฯลฯ) ปนกลาง
+// ประโยคไทย — bug ของ tokenizer โมเดล ไม่ใช่การ decode ผิดของเรา (ยืนยันแล้วจาก non-stream
+// path ที่ใช้ res.json() ตรงๆ ไม่มี manual byte decode). ลด temperature ช่วยได้บางส่วน
+// (ยังพบ ~25-36% ของคำตอบ) จึงกรองอักษรนอกไทย/ละตินพื้นฐาน/เครื่องหมายวรรคตอนทั่วไป/
+// สระพยัญชนะบาลีที่ใช้จริงทิ้งไปตรงๆ เป็นด่านสุดท้าย — exported เพื่อ unit test
+const PALI_DIACRITICS = "āĀīĪūŪñÑṅṄṭṬḍḌṇṆḷḶṃṂ"
+const SANITIZE_RE = new RegExp(`[^\\u0000-\\u007E\\u0E00-\\u0E7F\\u00A0\\u2010-\\u2027${PALI_DIACRITICS}]`, "g")
+
+export function sanitizeText(s: string): string {
+  return s.replace(SANITIZE_RE, "")
+}
+
 function extractOpenAI(data: any): string {
-  return data.choices[0].message.content
+  return sanitizeText(data.choices[0].message.content)
 }
 
 async function readOpenAIStream(res: Response, onToken: OnToken): Promise<string> {
@@ -125,7 +138,7 @@ async function readOpenAIStream(res: Response, onToken: OnToken): Promise<string
       if (payload === "[DONE]") continue
       try {
         const delta = JSON.parse(payload).choices?.[0]?.delta?.content
-        if (delta) { full += delta; onToken(delta) }
+        if (delta) { const clean = sanitizeText(delta); if (clean) { full += clean; onToken(clean) } }
       } catch { /* skip partial */ }
     }
   }
@@ -148,7 +161,7 @@ async function readGeminiStream(res: Response, onToken: OnToken): Promise<string
       try {
         const txt = JSON.parse(t.slice(5).trim())
           .candidates?.[0]?.content?.parts?.[0]?.text
-        if (txt) { full += txt; onToken(txt) }
+        if (txt) { const clean = sanitizeText(txt); if (clean) { full += clean; onToken(clean) } }
       } catch { /* skip */ }
     }
   }
