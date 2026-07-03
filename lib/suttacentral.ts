@@ -28,8 +28,13 @@ const THAI_TO_UIDS: Record<string, string[]> = {
   เสียใจ: ["snp3.8", "sn47.13"], เสียชีวิต: ["snp3.8", "sn47.13"],
   ความโกรธ: ["sn7.2", "an5.161"],
   เวียนว่ายตายเกิด: ["sn15.3"], ให้ทาน: ["an5.34", "an7.52"],
-  ทำบุญ: ["an8.36"], พระพุทธเจ้า: ["mn26", "dn16"],
-  พุทธศาสนา: ["sn56.11"], ธรรมะ: ["sn56.11", "dn31"],
+  ทำบุญ: ["an8.36"],
+  // NOTE: "พระพุทธเจ้า"/"พุทธศาสนา"/"ธรรมะ" were removed 2026-07-03 — they're
+  // category names, not topics, so they matched almost any Buddhism-related
+  // question as a substring and hijacked retrieval to an unrelated hardcoded
+  // sutta (e.g. a meat-eating question got routed to sn56.11, the Four Noble
+  // Truths). Questions containing them now fall through to rewriteThaiQuery,
+  // which searches on the actual topic instead of a fixed generic UID.
 }
 
 // แปลคำไทยยอดนิยม → อังกฤษ สำหรับ full-text search
@@ -49,7 +54,8 @@ const THAI_TO_EN: Record<string, string> = {
 const SC_BASE = "https://suttacentral.net"
 const TIMEOUT = 6000
 
-function fastPathUids(msg: string): string[] | null {
+// exported เพื่อให้ unit test ได้ (pure function)
+export function fastPathUids(msg: string): string[] | null {
   for (const [thai, uids] of Object.entries(THAI_TO_UIDS)) {
     if (msg.includes(thai)) return uids
   }

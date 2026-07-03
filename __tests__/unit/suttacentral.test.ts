@@ -1,4 +1,20 @@
-import { parseRewriteOutput, buildSystemPrompt, SuttaResult } from "../../lib/suttacentral"
+import { parseRewriteOutput, buildSystemPrompt, fastPathUids, SuttaResult } from "../../lib/suttacentral"
+
+describe("fastPathUids", () => {
+  it("does not hijack unrelated questions that merely mention Buddhism generically", () => {
+    // regression: "พุทธศาสนา"/"ธรรมะ"/"พระพุทธเจ้า" used to fast-path ANY question
+    // containing them to an unrelated hardcoded sutta (e.g. a meat-eating question
+    // was routed to sn56.11, the Four Noble Truths) instead of actually searching.
+    expect(fastPathUids("การกินเนื้อสัตว์ผิดหลักพระพุทธศาสนาไหม")).toBeNull()
+    expect(fastPathUids("ธรรมะเรื่องการทำงานเป็นอย่างไร")).toBeNull()
+    expect(fastPathUids("พระพุทธเจ้าตรัสเรื่องการเมืองไว้อย่างไร")).toBeNull()
+  })
+
+  it("still matches specific, genuinely topical keywords", () => {
+    expect(fastPathUids("ทุกข์คืออะไร")).toEqual(["sn56.11", "mn141"])
+    expect(fastPathUids("อานาปานสติทำอย่างไร")).toEqual(["mn118"])
+  })
+})
 
 describe("parseRewriteOutput", () => {
   it("lowercases and trims a plain keyword answer", () => {
