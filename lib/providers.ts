@@ -56,6 +56,7 @@ async function callGroq(
     body: JSON.stringify({
       model: "llama-3.3-70b-versatile",
       max_tokens: 800,
+      temperature: 0.3, // ลด random sampling กัน mojibake ในสคริปต์ทรัพยากรน้อย (เช่นไทย) ที่ Llama 3 เป็นบ้าง
       stream: Boolean(onToken),
       messages: [{ role: "system", content: systemPrompt }, ...messages],
     }),
