@@ -31,9 +31,9 @@
 
 ### 1. ได้รับ API Keys (ฟรีทั้งหมด)
 
-**Groq** (แนะนำสมัครหลาย account)
+**Groq**
 - ไปที่ https://console.groq.com
-- Sign up ด้วย Google (ใช้ email ต่างกันสำหรับแต่ละ account)
+- Sign up ด้วย Google
 - Dashboard → API Keys → Create API Key
 - คัดลอกเก็บไว้
 
@@ -67,7 +67,7 @@ vercel deploy
 
 # ใส่ env vars ใน Vercel Dashboard:
 # Settings → Environment Variables
-# GROQ_API_KEYS = gsk_xxx,gsk_yyy   (คั่นด้วย comma ถ้ามีหลาย key)
+# GROQ_API_KEYS = gsk_xxx   (single key, หรือหลาย key คั่นด้วย comma ถ้ามีจากทีมเดียวกัน)
 # GEMINI_API_KEY = AIza_xxx
 ```
 
@@ -105,10 +105,9 @@ ALLOWED_ORIGIN = "https://your-app.vercel.app"
 | ระดับ | ผู้ใช้พร้อมกัน | ค่าใช้จ่าย |
 |---|---|---|
 | Groq เดียว | ~15 คน | ฿0 |
-| Groq 3 keys | ~45 คน | ฿0 |
-| + Gemini fallback | ~80 คน | ฿0 |
-| + Cloudflare cache | ~200 คน | ฿0 |
-| + Cloudflare cache + คำถามซ้ำสูง | ~500 คน | ฿0 |
+| + Gemini fallback | ~30 คน | ฿0 |
+| + Cloudflare cache | ~100 คน | ฿0 |
+| + Cloudflare cache + คำถามซ้ำสูง | ~250 คน | ฿0 |
 
 > **หมายเหตุ:** แอปธรรมะได้ประโยชน์จาก cache สูงมาก เพราะคำถามซ้ำกันบ่อย
 > คำถาม Top 20 (ทุกข์, นิพพาน, ไตรลักษณ์ ฯลฯ) อาจคิดเป็น 60–70% ของ traffic ทั้งหมด
