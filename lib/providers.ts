@@ -98,7 +98,9 @@ async function callGemini(
   if (!res.ok) throw new Error(`Gemini error ${res.status}`)
   if (!onToken) {
     const data = await res.json()
-    return sanitizeText(data.candidates[0].content.parts[0].text)
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!text) throw new Error("Empty response (no candidates/content)")
+    return sanitizeText(text)
   }
   return readGeminiStream(res, onToken)
 }
@@ -118,7 +120,9 @@ export function sanitizeText(s: string): string {
 }
 
 function extractOpenAI(data: any): string {
-  return sanitizeText(data.choices[0].message.content)
+  const content = data?.choices?.[0]?.message?.content
+  if (!content) throw new Error("Empty response (no choices/content)")
+  return sanitizeText(content)
 }
 
 async function readOpenAIStream(res: Response, onToken: OnToken): Promise<string> {

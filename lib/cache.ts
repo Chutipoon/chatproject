@@ -3,10 +3,13 @@
 // แก้ปัญหา: Vercel serverless แต่ละ instance แยก Map กัน → cache hit ต่ำ
 // Redis = shared ทุก instance → cache จริง + rate-limit จริง
 
+interface Source { title: string; url: string; uid: string }
+
 interface CacheEntry {
   text: string
   provider: string
   timestamp: number
+  sources: Source[]
 }
 
 const CACHE_TTL_S = 60 * 60 * 24 // 24 ชม.
@@ -59,9 +62,9 @@ export async function getCached(question: string): Promise<CacheEntry | null> {
   return entry
 }
 
-export async function setCached(question: string, text: string, provider: string): Promise<void> {
+export async function setCached(question: string, text: string, provider: string, sources: Source[] = []): Promise<void> {
   const key = makeKey(question)
-  const entry: CacheEntry = { text, provider, timestamp: Date.now() }
+  const entry: CacheEntry = { text, provider, timestamp: Date.now(), sources }
   if (useRedis) {
     try {
       await redis(["SET", key, JSON.stringify(entry), "EX", CACHE_TTL_S])

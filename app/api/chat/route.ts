@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const cached = await getCached(userMessage)
   if (cached) {
     return NextResponse.json({
-      reply: cached.text, provider: cached.provider, cached: true, sources: [],
+      reply: cached.text, provider: cached.provider, cached: true, sources: cached.sources || [],
     })
   }
 
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   if (!wantStream) {
     try {
       const { text, provider } = await routeToProvider(messages, systemPrompt, undefined, model)
-      await setCached(userMessage, text, provider)
+      await setCached(userMessage, text, provider, sources)
       return NextResponse.json({ reply: text, provider, cached: false, sources })
     } catch (err: any) {
       return NextResponse.json({ error: errMsg(err) }, { status: 503 })
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
           (chunk) => send({ type: "token", text: chunk }),
           model
         )
-        await setCached(userMessage, text, provider)
+        await setCached(userMessage, text, provider, sources)
         send({ type: "done", provider })
       } catch (err: any) {
         send({ type: "error", error: errMsg(err) })

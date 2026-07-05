@@ -293,6 +293,7 @@ export default function DharmaChat() {
   const send = useCallback(async (text: string) => {
     const q = text.trim()
     if (!q || loading) return
+    setLoading(true)
     setInput("")
     setShowSuggestions(false)
     if (textareaRef.current) { textareaRef.current.style.height = "44px" }
