@@ -258,14 +258,23 @@ If the question is unrelated to Buddhism/Dhamma (e.g. a recipe, news, code), bri
 เมื่ออ้างพระสูตร ให้แทรกเข้าในประโยคอย่างเป็นธรรมชาติ ระบบจะแสดงลิงก์แหล่งอ้างอิงให้อัตโนมัติด้านล่างคำตอบอยู่แล้ว จึงไม่ต้องแปะ URL เองในเนื้อความ
 When referencing a sutta, weave it into the sentence naturally. Source links are shown automatically below your answer, so do not paste raw URLs in the text.`
 
-export function buildSystemPrompt(suttas: SuttaResult[]): string {
+// Llama 3.3 มัก "หลุด" ตอบไทยกับคำถามอังกฤษ (วัดสด 2026-07-06: 4/6 คำถามอังกฤษได้คำตอบไทย)
+// เพราะ prompt ส่วนใหญ่เป็นไทย — กฎภาษากลาง prompt แพ้บ่อย จึงตรวจสคริปต์ของคำถามฝั่ง server
+// แล้วสั่งปิดท้าย prompt แบบเจาะจงเมื่อคำถามไม่มีอักษรไทยเลย (ตำแหน่งท้าย prompt มีน้ำหนักสุด)
+const THAI_CHARS = /[฀-๿]/
+export function languageOverride(userMessage: string): string {
+  if (!userMessage || THAI_CHARS.test(userMessage)) return ""
+  return `\n\n--- LANGUAGE OVERRIDE (MANDATORY) ---\nThe user's message contains no Thai. The Thai text in this prompt is internal instruction only — do NOT let it set your output language. Write your ENTIRE reply in the user's own language (English if they wrote in English). Not a single Thai word.`
+}
+
+export function buildSystemPrompt(suttas: SuttaResult[], userMessage = ""): string {
   const suttaText = suttas
     .filter((s) => s.snippet)
     .map((s) => `[${s.title} — ${s.uid}]\n${s.snippet}`)
     .join("\n\n")
   if (!suttaText) {
     // ค้นไม่พบสูตรที่ตรงคำถาม — บอกโมเดลตรงๆ ห้ามให้มันเดาอ้างอิงเอง
-    return `${VERIFIER_PROMPT}\n\n--- หมายเหตุการค้นหา / Retrieval note ---\nรอบนี้ระบบค้นไม่พบพระสูตรที่ตรงกับคำถามโดยเฉพาะ ให้ตอบจากความรู้ทั่วไปเกี่ยวกับพระพุทธศาสนา ถ้าคำตอบควรมีแหล่งอ้างอิง ให้บอกผู้ใช้ตรงๆ ว่าครั้งนี้ไม่สามารถอ้างพระสูตรเฉพาะเจาะจงได้ ห้ามระบุชื่อหรือเลขพระสูตรที่ไม่แน่ใจเด็ดขาด\nNo specific sutta was retrieved for this question. Answer from general Buddhist knowledge; if a citation would normally be expected, tell the user plainly that you cannot cite a specific sutta this time. Never state a sutta name or number you are not certain of.`
+    return `${VERIFIER_PROMPT}\n\n--- หมายเหตุการค้นหา / Retrieval note ---\nรอบนี้ระบบค้นไม่พบพระสูตรที่ตรงกับคำถามโดยเฉพาะ ให้ตอบจากความรู้ทั่วไปเกี่ยวกับพระพุทธศาสนา ถ้าคำตอบควรมีแหล่งอ้างอิง ให้บอกผู้ใช้ตรงๆ ว่าครั้งนี้ไม่สามารถอ้างพระสูตรเฉพาะเจาะจงได้ ห้ามระบุชื่อหรือเลขพระสูตรที่ไม่แน่ใจเด็ดขาด\nNo specific sutta was retrieved for this question. Answer from general Buddhist knowledge; if a citation would normally be expected, tell the user plainly that you cannot cite a specific sutta this time. Never state a sutta name or number you are not certain of.${languageOverride(userMessage)}`
   }
-  return `${VERIFIER_PROMPT}\n\n--- ข้อมูลจากพระไตรปิฎก / Canonical context (SuttaCentral) ---\n${suttaText}\n\n(ใช้ข้อมูลข้างต้นประกอบคำตอบ / Use the passages above to ground your answer. อย่าอ้างสูตรอื่นถ้าไม่มั่นใจ / Don't cite other suttas unless confident. ตอบด้วยภาษาเดียวกับผู้ใช้ / Reply in the user's language.)`
+  return `${VERIFIER_PROMPT}\n\n--- ข้อมูลจากพระไตรปิฎก / Canonical context (SuttaCentral) ---\n${suttaText}\n\n(ใช้ข้อมูลข้างต้นประกอบคำตอบ / Use the passages above to ground your answer. อย่าอ้างสูตรอื่นถ้าไม่มั่นใจ / Don't cite other suttas unless confident. ตอบด้วยภาษาเดียวกับผู้ใช้ / Reply in the user's language.)${languageOverride(userMessage)}`
 }

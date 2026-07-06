@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   // RAG (ล้มเหลวได้ ไม่หยุด pipeline)
   let suttas: Awaited<ReturnType<typeof searchSutta>> = []
   try { suttas = await searchSutta(userMessage) } catch { suttas = [] }
-  const systemPrompt = buildSystemPrompt(suttas)
+  const systemPrompt = buildSystemPrompt(suttas, userMessage)
   const sources = suttas.map((s) => ({ title: s.title, url: s.url, uid: s.uid }))
 
   // ---- non-stream path ----

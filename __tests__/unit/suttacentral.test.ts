@@ -75,4 +75,22 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt(suttas)
     expect(prompt).toContain("Retrieval note")
   })
+
+  // regression: Llama drifted to Thai on English questions (4/6 live samples 2026-07-06)
+  it("appends the language override when the user message has no Thai characters", () => {
+    const prompt = buildSystemPrompt([], "What are the five precepts?")
+    expect(prompt).toContain("LANGUAGE OVERRIDE")
+    const withSuttas = buildSystemPrompt(
+      [{ uid: "mn10", title: "x", snippet: "text", url: "y" }],
+      "How do I meditate?"
+    )
+    // must be the very last section so it carries the most weight with the model
+    expect(withSuttas.trimEnd().endsWith("Not a single Thai word.")).toBe(true)
+  })
+
+  it("does not append the override for Thai or mixed-script questions", () => {
+    expect(buildSystemPrompt([], "ศีล 5 คืออะไร")).not.toContain("LANGUAGE OVERRIDE")
+    expect(buildSystemPrompt([], "metta คืออะไร")).not.toContain("LANGUAGE OVERRIDE")
+    expect(buildSystemPrompt([])).not.toContain("LANGUAGE OVERRIDE")
+  })
 })
