@@ -1,0 +1,142 @@
+[
+  {
+    "id": 1,
+    "category": "keyword-map-baseline",
+    "question": "อานาปานสติทำอย่างไร",
+    "expected_uids": ["mn118"],
+    "notes": "Existing THAI_TO_UIDS fast-path hit — baseline sanity check."
+  },
+  {
+    "id": 2,
+    "category": "keyword-map-baseline",
+    "question": "ทุกข์คืออะไร",
+    "expected_uids": ["sn56.11", "mn141"],
+    "notes": "Existing fast-path hit."
+  },
+  {
+    "id": 3,
+    "category": "keyword-map-baseline",
+    "question": "นิพพานคืออะไร",
+    "expected_uids": ["ud8.1", "mn26"],
+    "notes": "Existing fast-path hit."
+  },
+  {
+    "id": 4,
+    "category": "keyword-map-baseline",
+    "question": "กรรมคืออะไร",
+    "expected_uids": ["an4.232", "mn135"],
+    "notes": "Existing fast-path hit."
+  },
+  {
+    "id": 5,
+    "category": "keyword-map-baseline",
+    "question": "ปฏิจจสมุปบาทอธิบายอย่างไร",
+    "expected_uids": ["sn12.1", "mn38"],
+    "notes": "Existing fast-path hit."
+  },
+  {
+    "id": 6,
+    "category": "keyword-map-baseline",
+    "question": "เมตตาคืออะไร",
+    "expected_uids": ["snp1.8", "an4.125"],
+    "notes": "Existing fast-path hit."
+  },
+  {
+    "id": 7,
+    "category": "paraphrase-ceiling",
+    "question": "การให้อภัยคนที่ทำร้ายเรา ควรทำอย่างไร",
+    "expected_uids": ["mn21", "sn7.2"],
+    "notes": "Paraphrase of อโหสิกรรม without the literal keyword substring — tests rewrite/search beyond the map."
+  },
+  {
+    "id": 8,
+    "category": "paraphrase-ceiling",
+    "question": "การทำจิตให้นิ่งเพื่อความสงบทำอย่างไร",
+    "expected_uids": ["dn22", "mn36"],
+    "notes": "Paraphrase of สมาธิ avoiding the literal keyword."
+  },
+  {
+    "id": 9,
+    "category": "paraphrase-ceiling",
+    "question": "โกรธเวลามีคนพูดจาไม่ดีใส่ ควรทำอย่างไรดี",
+    "expected_uids": ["sn7.2", "an5.161"],
+    "notes": "Paraphrase of ความโกรธ (only 'โกรธ' appears, not the full keyword substring)."
+  },
+  {
+    "id": 10,
+    "category": "paraphrase-ceiling",
+    "question": "คนที่เรารักจากไปแล้ว เราจะทำใจอย่างไร",
+    "expected_uids": ["snp3.8", "sn47.13"],
+    "notes": "Euphemism for death/grief avoiding เสียชีวิต/เศร้า/เสียใจ keyword substrings."
+  },
+  {
+    "id": 11,
+    "category": "paraphrase-ceiling",
+    "question": "อยากรู้ว่าทำไมคนเราต้องเกิดแก่เจ็บตายวนไปเรื่อยๆ",
+    "expected_uids": ["sn15.3"],
+    "notes": "Paraphrase of เวียนว่ายตายเกิด (samsara) avoiding the literal keyword."
+  },
+  {
+    "id": 12,
+    "category": "paraphrase-ceiling",
+    "question": "ทำไมพระพุทธเจ้าสอนไม่ให้ยึดติดกับสิ่งต่างๆ",
+    "expected_uids": ["sn22.59", "sn35.1", "mn35"],
+    "notes": "Contains พระพุทธเจ้า, deliberately removed as a hijacking keyword (2026-07-03 fix) — must fall through to rewriteThaiQuery, not hardcode. Tests the regression fix end-to-end, not just fastPathUids returning null."
+  },
+  {
+    "id": 13,
+    "category": "known-gap-english",
+    "question": "What is loving-kindness (metta) in Buddhism?",
+    "expected_uids": ["snp1.8"],
+    "notes": "Documented live gap (docs/retrieval-quality-notes.md, 2026-07-06): answered from general knowledge, sources: [] even though snp1.8 exists on SuttaCentral. Included to track when this gets fixed."
+  },
+  {
+    "id": 14,
+    "category": "known-gap-english",
+    "question": "What does the Buddha say about anger?",
+    "expected_uids": ["sn7.2", "an5.161"],
+    "notes": "English-path equivalent of case 9 — tests extractEnKeywords against SuttaCentral's AND-only search."
+  },
+  {
+    "id": 15,
+    "category": "known-gap-english",
+    "question": "How should I deal with grief after losing a family member?",
+    "expected_uids": ["snp3.8", "sn47.13"],
+    "notes": "English-path equivalent of case 10, multi-word query most likely to 0-hit under AND semantics."
+  },
+  {
+    "id": 16,
+    "category": "off-topic-scope",
+    "question": "สูตรทำต้มยำกุ้งทำยังไง",
+    "expected_uids": [],
+    "notes": "Off-topic (recipe) — bot should decline briefly and invite back to dharma, not answer, per VERIFIER_PROMPT scope rule."
+  },
+  {
+    "id": 17,
+    "category": "off-topic-scope",
+    "question": "วันนี้ข่าวหุ้นไทยเป็นอย่างไรบ้าง",
+    "expected_uids": [],
+    "notes": "Off-topic (stock news)."
+  },
+  {
+    "id": 18,
+    "category": "off-topic-scope",
+    "question": "ช่วยเขียนโค้ด python เรียงลำดับตัวเลขให้หน่อย",
+    "expected_uids": [],
+    "notes": "Off-topic (coding request)."
+  },
+  {
+    "id": 19,
+    "category": "hijack-regression",
+    "question": "การกินเนื้อสัตว์ผิดหลักพระพุทธศาสนาไหม",
+    "expected_uids": null,
+    "notes": "Regression case for the 2026-07-03 hijack fix (unit-tested at the fastPathUids level already) — this entry exercises the FULL pipeline (search + LLM answer), not just the pure function. expected_uids is null: no specific UID is asserted right, only that it must NOT be sn56.11 (Four Noble Truths, the old hijack target)."
+  },
+  {
+    "id": 20,
+    "category": "hijack-regression",
+    "question": "ธรรมะเรื่องการทำงานเป็นอย่างไร",
+    "expected_uids": null,
+    "notes": "Same regression family as case 19 — must not hijack to a hardcoded unrelated sutta."
+  }
+]
