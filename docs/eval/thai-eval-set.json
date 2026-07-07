@@ -138,5 +138,13 @@
     "question": "ธรรมะเรื่องการทำงานเป็นอย่างไร",
     "expected_uids": null,
     "notes": "Same regression family as case 19 — must not hijack to a hardcoded unrelated sutta."
+  },
+  {
+    "id": 21,
+    "category": "hallucination-no-grounding",
+    "question": "สัมภเวสีสัตคืออะไร แบ่งเป็นกี่ประเภท",
+    "expected_uids": [],
+    "forbidden": ["สัมภเวสีสัตสูตร", "Sambhavesī-sutta", "Sambhavesi Sutta", "Sambhavesī Sutta"],
+    "notes": "Live failure found 2026-07-07 (see test.txt, caught by an independent Gemini-gem verifier pass): not in THAI_TO_UIDS/THAI_TO_EN, rewriteThaiQuery+search found nothing, and buildSystemPrompt's no-sutta fallback let the model fabricate a false 4-fold classification of สัมภเวสีสัต (no such category exists in the Tipitaka; correct term pairs สัมภเวสี with ภูตะ, per the Āhāra Sutta) plus a mistranslated Pali term (apāya-satta ≠ 'wild animals'). This isn't a retrieval-coverage gap like case 13 (metta) — it's the model confidently inventing doctrinal content, not just missing a citation. The no-sutta prompt branch in buildSystemPrompt was tightened same day to forbid inventing definitions/categorizations for unfamiliar terms, not just fake sutta names. The `forbidden` list is the concrete regression guard for the exact fabricated sutta title observed live; retrieval-eval.test.ts now calls the real buildSystemPrompt+routeToProvider path (not just searchSutta) and fails if any `forbidden` string appears in the answer. It cannot catch every possible rephrasing of the hallucination, only this specific one — a real fix still needs the prompt/retrieval improvement, this is a tripwire, not a content-quality judge."
   }
 ]

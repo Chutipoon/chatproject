@@ -16,6 +16,23 @@ retrieval-quality work in `docs/retrieval-quality-notes.md`. Categories:
 - **hijack-regression** (2): full-pipeline version of the `fastPathUids` unit
   tests in `__tests__/unit/suttacentral.test.ts` — same questions, but here
   exercising the live search path end-to-end instead of the pure function.
+- **hallucination-no-grounding** (1): retrieval is expected to find nothing
+  (`expected_uids: []`); the risk is the model inventing content in
+  `buildSystemPrompt`'s no-sutta branch instead of just missing a citation.
+
+## Forbidden-string content check
+
+Cases can add a `forbidden: string[]` field — substrings that must never
+appear in the LLM's actual answer. Only cases with this field trigger a
+second pass that calls the real `searchSutta` → `buildSystemPrompt` →
+`routeToProvider` path (the same one `app/api/chat/route.ts` uses) and
+asserts none of the strings appear in the response text. This is how case 21
+guards against the exact fabricated sutta name (`สัมภเวสีสัตสูตร`) seen in a
+real 2026-07-07 failure — it's a tripwire for a known fabrication, not a
+general content-quality judge, and it only fires if at least one provider key
+(`AZURE_OPENAI_*` / `GROQ_API_KEY(S)` / `GEMINI_API_KEY`) is configured; with
+none set, those cases are skipped with a console warning rather than silently
+passing.
 
 ## Running it
 
