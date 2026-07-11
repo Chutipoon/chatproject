@@ -1,4 +1,4 @@
-# CLAUDE.md — ธรรมสหาย (chatproject)
+# CLAUDE.md — ธรรมดู (chatproject)
 
 แชตบอตพุทธธรรม ดึงพระสูตรจริงจาก SuttaCentral → AI อธิบาย (RAG-based)
 **Repo:** github.com/Chutipoon/chatproject | **Live:** chatproject-sage.vercel.app (public ✓ ยืนยัน 2026-07-02)

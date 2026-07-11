@@ -4,7 +4,7 @@
 // This measures retrieval quality; it does not assert a passing bar, since the
 // eval set exists precisely to find gaps in the current pipeline (see
 // docs/retrieval-quality-notes.md for the known metta gap, case 13 here).
-import { searchSutta, buildSystemPrompt } from "../../lib/suttacentral"
+import { searchSutta, buildSystemPrompt, groundingLevel } from "../../lib/suttacentral"
 import { routeToProvider, availableProviders } from "../../lib/providers"
 import evalSet from "../../docs/eval/thai-eval-set.json"
 
@@ -60,6 +60,10 @@ const hasProvider = availableProviders().length > 0
       "case $id [$category]: answer must not contain a forbidden string",
       async ({ question, forbidden }) => {
         const suttas = await searchSutta(question)
+        // these cases exist precisely because retrieval finds nothing for them —
+        // assert that stays true, since the forbidden-string check below only
+        // makes sense against the no-grounding prompt branch.
+        expect(groundingLevel(suttas)).toBe("ungrounded")
         const systemPrompt = buildSystemPrompt(suttas, question)
         const { text } = await routeToProvider([{ role: "user", content: question }], systemPrompt)
         for (const bad of forbidden!) {

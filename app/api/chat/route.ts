@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { routeToProvider, availableProviders, ChatMessage } from "@/lib/providers"
 import { getCached, setCached, checkRateLimit } from "@/lib/cache"
-import { searchSutta, buildSystemPrompt } from "@/lib/suttacentral"
+import { searchSutta, buildSystemPrompt, groundingLevel } from "@/lib/suttacentral"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -42,8 +42,10 @@ export async function POST(req: NextRequest) {
   // cache (shared)
   const cached = await getCached(userMessage)
   if (cached) {
+    const cachedSources = cached.sources || []
     return NextResponse.json({
-      reply: cached.text, provider: cached.provider, cached: true, sources: cached.sources || [],
+      reply: cached.text, provider: cached.provider, cached: true, sources: cachedSources,
+      grounding: cachedSources.length > 0 ? "grounded" : "ungrounded",
     })
   }
 
@@ -52,13 +54,14 @@ export async function POST(req: NextRequest) {
   try { suttas = await searchSutta(userMessage) } catch { suttas = [] }
   const systemPrompt = buildSystemPrompt(suttas, userMessage)
   const sources = suttas.map((s) => ({ title: s.title, url: s.url, uid: s.uid }))
+  const grounding = groundingLevel(suttas)
 
   // ---- non-stream path ----
   if (!wantStream) {
     try {
       const { text, provider } = await routeToProvider(messages, systemPrompt, undefined, model)
       await setCached(userMessage, text, provider, sources)
-      return NextResponse.json({ reply: text, provider, cached: false, sources })
+      return NextResponse.json({ reply: text, provider, cached: false, sources, grounding })
     } catch (err: any) {
       return NextResponse.json({ error: errMsg(err) }, { status: 503 })
     }
@@ -71,7 +74,7 @@ export async function POST(req: NextRequest) {
       const send = (obj: any) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`))
       // ส่ง sources ก่อน เพื่อให้ frontend แสดงอ้างอิงได้เลย
-      send({ type: "sources", sources })
+      send({ type: "sources", sources, grounding })
       try {
         const { text, provider } = await routeToProvider(
           messages, systemPrompt,

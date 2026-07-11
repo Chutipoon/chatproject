@@ -1,4 +1,4 @@
-import { parseRewriteOutput, buildSystemPrompt, fastPathUids, SuttaResult } from "../../lib/suttacentral"
+import { parseRewriteOutput, buildSystemPrompt, fastPathUids, groundingLevel, SuttaResult } from "../../lib/suttacentral"
 
 describe("fastPathUids", () => {
   it("does not hijack unrelated questions that merely mention Buddhism generically", () => {
@@ -49,6 +49,24 @@ describe("parseRewriteOutput", () => {
 
   it("accepts multi-word hyphenated keywords", () => {
     expect(parseRewriteOutput("loving-kindness metta")).toBe("loving-kindness metta")
+  })
+})
+
+describe("groundingLevel", () => {
+  it("is ungrounded when no suttas were retrieved", () => {
+    expect(groundingLevel([])).toBe("ungrounded")
+  })
+
+  it("is grounded when at least one sutta has real snippet text", () => {
+    const suttas: SuttaResult[] = [
+      { uid: "mn10", title: "Satipatthana Sutta", snippet: "The four foundations...", url: "x" },
+    ]
+    expect(groundingLevel(suttas)).toBe("grounded")
+  })
+
+  it("is ungrounded when suttas are present but all have empty snippets", () => {
+    const suttas: SuttaResult[] = [{ uid: "mn10", title: "x", snippet: "", url: "y" }]
+    expect(groundingLevel(suttas)).toBe("ungrounded")
   })
 })
 

@@ -146,5 +146,13 @@
     "expected_uids": [],
     "forbidden": ["สัมภเวสีสัตสูตร", "Sambhavesī-sutta", "Sambhavesi Sutta", "Sambhavesī Sutta"],
     "notes": "Live failure found 2026-07-07 (see test.txt, caught by an independent Gemini-gem verifier pass): not in THAI_TO_UIDS/THAI_TO_EN, rewriteThaiQuery+search found nothing, and buildSystemPrompt's no-sutta fallback let the model fabricate a false 4-fold classification of สัมภเวสีสัต (no such category exists in the Tipitaka; correct term pairs สัมภเวสี with ภูตะ, per the Āhāra Sutta) plus a mistranslated Pali term (apāya-satta ≠ 'wild animals'). This isn't a retrieval-coverage gap like case 13 (metta) — it's the model confidently inventing doctrinal content, not just missing a citation. The no-sutta prompt branch in buildSystemPrompt was tightened same day to forbid inventing definitions/categorizations for unfamiliar terms, not just fake sutta names. The `forbidden` list is the concrete regression guard for the exact fabricated sutta title observed live; retrieval-eval.test.ts now calls the real buildSystemPrompt+routeToProvider path (not just searchSutta) and fails if any `forbidden` string appears in the answer. It cannot catch every possible rephrasing of the hallucination, only this specific one — a real fix still needs the prompt/retrieval improvement, this is a tripwire, not a content-quality judge."
+  },
+  {
+    "id": 22,
+    "category": "hallucination-no-grounding",
+    "question": "ละนันทิคืออะไร",
+    "expected_uids": [],
+    "forbidden": ["ละนันทิ (ปิติ)", "ผ่อนคลายและปลดปล่อยความเครียด"],
+    "notes": "Live failure found 2026-07-11 (see agan.txt, caught by the same independent Gemini-gem verifier workflow as case 21): 'นันทิ' is not in THAI_TO_UIDS/THAI_TO_EN, so it falls to rewriteThaiQuery; the model then defined ละนันทิ (abandoning nandi/craving-delight, per the Nandikkhaya Sutta SN 35) as if it were ปีติ (piti/rapture), and reduced a Nibbana-oriented practice to a stress-relief technique — a doctrinal conflation, not just a missing citation, recurring on a new term despite the c1be09b prompt tightening that followed case 21. Added alongside a `groundingLevel()` helper (lib/suttacentral.ts) and a UI grounding badge so this class of risk is visible to users, not just guarded by a soft prompt instruction."
   }
 ]

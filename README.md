@@ -1,4 +1,4 @@
-# ธรรมสหาย — ระดับ 4: Streaming + Shared Cache + Azure tier
+# ธรรมดู — ระดับ 4: Streaming + Shared Cache + Azure tier
 
 ## สถาปัตยกรรม
 

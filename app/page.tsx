@@ -1,5 +1,5 @@
 "use client"
-// app/page.tsx — ธรรมสหาย frontend
+// app/page.tsx — ธรรมดู frontend
 // Aesthetic: warm parchment, saffron gold, Thai temple-inspired
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -13,6 +13,7 @@ interface Message {
   provider?: string
   cached?: boolean
   sources?: Source[]
+  grounding?: "grounded" | "ungrounded"
   loading?: boolean
 }
 interface Conversation {
@@ -24,7 +25,7 @@ interface Conversation {
 
 const STORAGE_KEY = "dharma-chats-v1"
 const INTRO_TEXT =
-  "สวัสดีครับ ผมคือ ธรรมสหาย ผู้ช่วยด้านพุทธธรรมดิจิทัล\n\nท่านสามารถถามเรื่องธรรมะ ศีล สมาธิ ปัญญา หรือการนำหลักพุทธศาสนาไปใช้ในชีวิต ผมจะตอบโดยอ้างอิงพระไตรปิฎกและแหล่งที่มาจริงทุกครั้ง"
+  "สวัสดีครับ ผมคือ ธรรมดู ผู้ช่วยด้านพุทธธรรมดิจิทัล\n\nท่านสามารถถามเรื่องธรรมะ ศีล สมาธิ ปัญญา หรือการนำหลักพุทธศาสนาไปใช้ในชีวิต ผมจะตอบโดยอ้างอิงพระไตรปิฎกและแหล่งที่มาจริงทุกครั้ง"
 
 const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
 const introMessage = (): Message => ({ id: uid(), role: "bot", text: INTRO_TEXT })
@@ -186,6 +187,19 @@ function MessageBubble({ msg }: { msg: Message }) {
           </div>
         )}
 
+        {/* grounding badge */}
+        {!isUser && msg.grounding && (
+          <div style={{
+            fontSize: 11,
+            color: msg.grounding === "grounded" ? "var(--gold-light)" : "var(--amber)",
+            paddingLeft: 4,
+          }}>
+            {msg.grounding === "grounded"
+              ? "📖 อ้างอิงจากพระไตรปิฎก"
+              : "⚠️ ไม่พบพระสูตรที่ตรงคำถาม — คำตอบจากความรู้ทั่วไป โปรดตรวจสอบเพิ่มเติม"}
+          </div>
+        )}
+
         {/* provider badge */}
         {msg.provider && !isUser && (
           <div style={{ fontSize: 10.5, color: "var(--gold-light)", paddingLeft: 4 }}>
@@ -328,7 +342,7 @@ export default function DharmaChat() {
         const data = await res.json()
         setMessages(prev => prev.map(m =>
           m.id === loadMsg.id
-            ? { ...m, loading: false, text: data.reply || data.error || "เกิดข้อผิดพลาด", provider: data.provider, cached: data.cached, sources: data.sources || [] }
+            ? { ...m, loading: false, text: data.reply || data.error || "เกิดข้อผิดพลาด", provider: data.provider, cached: data.cached, sources: data.sources || [], grounding: data.grounding }
             : m
         ))
         return
@@ -353,7 +367,7 @@ export default function DharmaChat() {
           if (!t.startsWith("data:")) continue
           let evt: any
           try { evt = JSON.parse(t.slice(5).trim()) } catch { continue }
-          if (evt.type === "sources") { srcs = evt.sources || []; apply({ sources: srcs }) }
+          if (evt.type === "sources") { srcs = evt.sources || []; apply({ sources: srcs, grounding: evt.grounding }) }
           else if (evt.type === "token") { acc += evt.text; apply({ loading: false, text: acc, sources: srcs }) }
           else if (evt.type === "done") { prov = evt.provider; apply({ loading: false, text: acc, provider: prov, sources: srcs }) }
           else if (evt.type === "error") { apply({ loading: false, text: evt.error || "เกิดข้อผิดพลาด" }) }
@@ -424,7 +438,7 @@ export default function DharmaChat() {
                   color: "var(--cream)",
                   letterSpacing: "0.02em",
                   lineHeight: 1.2,
-                } as React.CSSProperties}>ธรรมสหาย</div>
+                } as React.CSSProperties}>ธรรมดู</div>
                 <div style={{ fontSize: 11, color: "var(--gold-light)", marginTop: 1 }}>
                   ผู้ช่วยด้านพุทธธรรม
                 </div>
@@ -538,7 +552,7 @@ export default function DharmaChat() {
               fontSize: 14.5, color: "var(--bark)",
               fontWeight: 500,
             }}>
-              ธรรมสหาย
+              ธรรมดู
             </span>
             <span style={{ fontSize: 12, color: "var(--gold)", marginLeft: 4 }}>
               — อ้างอิงพระไตรปิฎกจริง

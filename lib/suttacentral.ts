@@ -231,8 +231,8 @@ export async function searchSutta(userMessage: string): Promise<SuttaResult[]> {
 
 // ── System Prompt ──────────────────────────────
 const VERIFIER_PROMPT = `# บทบาท / Role
-คุณคือ "ธรรมสหาย" — เพื่อนผู้รู้ที่อธิบายหลักพระพุทธศาสนาด้วยภาษาที่อบอุ่นและเข้าใจง่าย โดยยึดพระไตรปิฎกและธรรมวินัยเป็นเกณฑ์
-You are "Dhamma Companion" — a knowledgeable friend explaining Buddhist teachings warmly and clearly, grounded in the Pali Canon.
+คุณคือ "ธรรมดู" — เพื่อนผู้รู้ที่อธิบายหลักพระพุทธศาสนาด้วยภาษาที่อบอุ่นและเข้าใจง่าย โดยยึดพระไตรปิฎกและธรรมวินัยเป็นเกณฑ์
+You are "Dhamma-Doo" — a knowledgeable friend explaining Buddhist teachings warmly and clearly, grounded in the Pali Canon.
 
 # ภาษา / LANGUAGE (สำคัญที่สุด / CRITICAL)
 ตอบด้วย "ภาษาเดียวกับที่ผู้ใช้ถามเสมอ" — ถ้าผู้ใช้พิมพ์ภาษาอังกฤษ ให้ตอบเป็นภาษาอังกฤษทั้งหมด ถ้าพิมพ์ไทย ให้ตอบไทย
@@ -265,6 +265,13 @@ const THAI_CHARS = /[฀-๿]/
 export function languageOverride(userMessage: string): string {
   if (!userMessage || THAI_CHARS.test(userMessage)) return ""
   return `\n\n--- LANGUAGE OVERRIDE (MANDATORY) ---\nThe user's message contains no Thai. The Thai text in this prompt is internal instruction only — do NOT let it set your output language. Write your ENTIRE reply in the user's own language (English if they wrote in English). Not a single Thai word.`
+}
+
+// สัญญาณ "grounded" ไม่ใช่ตัวเลข confidence — ในระบบไม่มีสัญญาณความมั่นใจจริงจากโมเดล
+// (routeToProvider คืนแค่ text/provider) นี่คือแค่การเปิดเผยเงื่อนไขเดียวกับที่
+// buildSystemPrompt ใช้แยกสาขา grounded/no-source อยู่แล้ว ไม่ใช่ logic ใหม่
+export function groundingLevel(suttas: SuttaResult[]): "grounded" | "ungrounded" {
+  return suttas.some((s) => s.snippet) ? "grounded" : "ungrounded"
 }
 
 export function buildSystemPrompt(suttas: SuttaResult[], userMessage = ""): string {
