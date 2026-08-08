@@ -35,3 +35,79 @@ body {
 
 /* selection */
 ::selection { background: var(--gold-light); color: var(--bark); }
+
+/* ── layout ───────────────────────────────────────────────
+   property ที่เกี่ยวกับ layout อยู่ตรงนี้ ไม่ใช่ inline style
+   เพราะ inline style ชนะ selector ทุกตัว → media query จะไม่มีผล
+   สไตล์ตกแต่ง (สี เงา ขอบ) ยังอยู่ใน page.tsx ตามเดิม            */
+
+.shell { display: flex; height: 100dvh; overflow: hidden; }
+
+.sidebar { width: 260px; flex-shrink: 0; }
+
+.chat-header  { padding: 14px 24px; }
+.chat-scroll  { padding: 24px 28px; }
+.suggestions  { padding: 0 28px 12px; }
+.composer     { padding: 12px 24px 20px; }
+
+.bubble-avatar { width: 34px; height: 34px; font-size: 16px; }
+.bubble-body   { max-width: 76%; }
+
+/* ข้อความไทยยาวๆ / URL ต้องไม่ดันบับเบิลจนล้น */
+.bubble-text { overflow-wrap: anywhere; }
+
+.composer-input { font-size: 14px; }
+
+/* เห็นเฉพาะจอเล็ก */
+.sidebar-toggle,
+.sidebar-backdrop { display: none; }
+
+/* ── mobile ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* sidebar → drawer เลื่อนออกมาทับ ไม่กินความกว้างของ main อีกต่อไป
+     visibility จำเป็น ไม่ใช่แค่ของแถม — transform ซ่อนแค่ทางสายตา
+     ปุ่มข้างใน (รวม "ลบแชต" ทุกห้อง) ยังรับ focus ได้ทั้งที่อยู่นอกจอ
+     visibility:hidden ถอดออกจากทั้ง tab order และ accessibility tree
+     ทำใน CSS เพื่อให้จำกัดอยู่ใน media query เอง — ถ้าใช้ inert ต้อง
+     เช็คขนาดจอใน JS ซึ่งจะพา hydration mismatch กลับมา            */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(260px, 78vw);
+    z-index: 20;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0.2s;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+  }
+  .sidebar.open { transform: none; visibility: visible; }
+
+  .sidebar-toggle { display: flex; }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 15;
+    background: rgba(42, 31, 16, 0.45);
+  }
+
+  .chat-header  { padding: 10px 14px; }
+  .chat-scroll  { padding: 16px 12px; }
+  .suggestions  { padding: 0 12px 10px; }
+  .composer     { padding: 10px 12px 14px; }
+
+  .bubble-avatar { width: 28px; height: 28px; font-size: 14px; }
+  .bubble-body   { max-width: 88%; }
+
+  .header-tagline { display: none; }
+
+  /* iOS Safari ซูมหน้าจอเองถ้า input font-size < 16px แล้วซูมกลับไม่ได้
+     เพราะ body{overflow:hidden} — ห้ามแก้ด้วย user-scalable=no */
+  .composer-input { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}
