@@ -79,10 +79,18 @@ body {
     z-index: 20;
     transform: translateX(-100%);
     visibility: hidden;
-    transition: transform 0.2s ease, visibility 0.2s;
+    /* ตอนปิด: หน่วง visibility ไว้จนสไลด์จบ ไม่งั้นจะหายวับ
+       ตอนเปิด: ต้องเป็น visible ทันที (0s ไม่หน่วง) — ถ้าปล่อยให้ transition
+       ค่อยๆ ไป ที่ progress 0 ค่ายังเป็น hidden อยู่ แล้ว .focus() จะเงียบ
+       เพราะ element ที่ visibility:hidden รับ focus ไม่ได้                */
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
   }
-  .sidebar.open { transform: none; visibility: visible; }
+  .sidebar.open {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.2s ease, visibility 0s;
+  }
 
   .sidebar-toggle { display: flex; }
   .sidebar-backdrop {
@@ -108,6 +116,8 @@ body {
   .composer-input { font-size: 16px; }
 }
 
+/* ต้องระบุ .sidebar.open ด้วย ไม่งั้น specificity ของกฎในบล็อกมือถือจะชนะ */
 @media (prefers-reduced-motion: reduce) {
-  .sidebar { transition: none; }
+  .sidebar,
+  .sidebar.open { transition: none; }
 }

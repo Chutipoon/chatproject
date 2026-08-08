@@ -233,6 +233,8 @@ export default function DharmaChat() {
   const [sidebarOpen, setSidebarOpen] = useState(false)   // ใช้เฉพาะจอเล็ก (drawer)
   const chatRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const sidebarRef = useRef<HTMLElement>(null)
+  const toggleRef = useRef<HTMLButtonElement>(null)
 
   // โหลดประวัติแชตจาก localStorage (ครั้งแรก)
   useEffect(() => {
@@ -264,6 +266,24 @@ export default function DharmaChat() {
       })
       .catch(() => {})
   }, [])
+
+  // drawer: Escape ปิด + ย้าย focus เข้า drawer ตอนเปิด แล้วคืนให้ปุ่ม ☰ ตอนปิด
+  // ถ้าไม่ย้าย focus จะค้างอยู่บนปุ่ม ☰ ซึ่งตอนนั้นอยู่ใต้ backdrop
+  useEffect(() => {
+    if (!sidebarOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSidebarOpen(false) }
+    document.addEventListener("keydown", onKey)
+    // รอข้ามเฟรมก่อน focus — element ที่ยัง visibility:hidden รับ focus ไม่ได้
+    // และ .focus() ที่ล้มเหลวจะเงียบสนิท ไม่ throw
+    const raf = requestAnimationFrame(() =>
+      sidebarRef.current?.querySelector<HTMLElement>("button")?.focus()
+    )
+    return () => {
+      cancelAnimationFrame(raf)
+      document.removeEventListener("keydown", onKey)
+      toggleRef.current?.focus()   // บน desktop ปุ่มเป็น display:none → focus() ไม่ทำอะไร
+    }
+  }, [sidebarOpen])
 
   const active = conversations.find(c => c.id === activeId)
   const messages = active?.messages ?? []
@@ -408,20 +428,22 @@ export default function DharmaChat() {
       {/* ── layout shell ── */}
       <div className="shell" style={{ fontFamily: "'Sarabun', sans-serif" }}>
 
+        {/* อยู่นอก aside เพราะบนมือถือ aside เป็น fixed+transform จึงกลายเป็น
+            containing block ทำให้แถบถูกบีบเหลือเท่า drawer แล้วเลื่อนหายไปด้วย */}
+        <LotusStrip />
+
         {/* backdrop ปิด drawer (จอเล็กเท่านั้น) */}
         {sidebarOpen && (
           <div className="sidebar-backdrop" aria-hidden onClick={() => setSidebarOpen(false)} />
         )}
 
         {/* ── sidebar ── */}
-        <aside className={sidebarOpen ? "sidebar open" : "sidebar"} style={{
+        <aside ref={sidebarRef} className={sidebarOpen ? "sidebar open" : "sidebar"} style={{
           background: "var(--bark)",
           display: "flex", flexDirection: "column",
           padding: "0",
           borderRight: "1px solid var(--bark-mid)",
         }}>
-          <LotusStrip />
-
           {/* brand */}
           <div style={{ padding: "28px 20px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -547,6 +569,7 @@ export default function DharmaChat() {
           }}>
             {/* ปุ่มเปิด drawer — ซ่อนบน desktop ด้วย CSS */}
             <button
+              ref={toggleRef}
               className="sidebar-toggle"
               onClick={() => setSidebarOpen(v => !v)}
               aria-label="เปิดรายการแชต"
