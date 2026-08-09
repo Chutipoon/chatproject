@@ -326,6 +326,31 @@ export default function DharmaChat() {
 
   useEffect(() => { scrollBottom() }, [messages, scrollBottom])
 
+  // แป้นพิมพ์มือถือบังช่องพิมพ์: iOS Safari ไม่รองรับ interactive-widget
+  // layout viewport จึงไม่หด 100dvh เลยเท่าเดิม ช่องพิมพ์ไปอยู่ใต้แป้นพิมพ์
+  // และเพราะ main/.shell/body เป็น overflow:hidden ทั้งหมด เบราว์เซอร์จึง
+  // ไม่มีอะไรให้เลื่อนช่องพิมพ์ขึ้นมาเอง → ต้องหดความสูง shell เอง
+  // ต้องอยู่หลัง scrollBottom เพราะเป็น const (temporal dead zone)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    let prev = 0
+    const sync = () => {
+      const hidden = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      document.documentElement.style.setProperty("--kb", `${hidden}px`)
+      if (hidden > 0 && prev === 0) scrollBottom()   // แป้นพิมพ์เพิ่งเปิด
+      prev = hidden
+    }
+    sync()
+    vv.addEventListener("resize", sync)
+    vv.addEventListener("scroll", sync)
+    return () => {
+      vv.removeEventListener("resize", sync)
+      vv.removeEventListener("scroll", sync)
+      document.documentElement.style.removeProperty("--kb")
+    }
+  }, [scrollBottom])
+
   const send = useCallback(async (text: string) => {
     const q = text.trim()
     if (!q || loading) return
