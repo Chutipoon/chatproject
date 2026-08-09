@@ -41,7 +41,9 @@ body {
    เพราะ inline style ชนะ selector ทุกตัว → media query จะไม่มีผล
    สไตล์ตกแต่ง (สี เงา ขอบ) ยังอยู่ใน page.tsx ตามเดิม            */
 
-.shell { display: flex; height: 100dvh; overflow: hidden; }
+/* --kb = ความสูงที่แป้นพิมพ์บังอยู่ ตั้งจาก visualViewport ใน page.tsx
+   บนเดสก์ท็อป/ตอนไม่มีแป้นพิมพ์ค่าเป็น 0 → เท่ากับ 100dvh เหมือนเดิม */
+.shell { display: flex; height: calc(100dvh - var(--kb, 0px)); overflow: hidden; }
 
 .sidebar { width: 260px; flex-shrink: 0; }
 
