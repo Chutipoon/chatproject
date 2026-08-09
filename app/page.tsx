@@ -135,10 +135,9 @@ function MessageBubble({ msg }: { msg: Message }) {
       animation: "slideIn 0.22s ease both",
     }}>
       {/* avatar */}
-      <div style={{
-        width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+      <div className="bubble-avatar" style={{
+        borderRadius: "50%", flexShrink: 0,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 16,
         background: isUser ? "var(--parchment)" : "linear-gradient(135deg,#D4791A,#C8943A)",
         color: isUser ? "var(--bark-mid)" : "#fff",
         boxShadow: "0 2px 8px var(--shadow)",
@@ -148,8 +147,8 @@ function MessageBubble({ msg }: { msg: Message }) {
       </div>
 
       {/* bubble */}
-      <div style={{ maxWidth: "76%", display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{
+      <div className="bubble-body" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div className="bubble-text" style={{
           padding: "11px 16px",
           borderRadius: isUser ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
           background: isUser
@@ -231,8 +230,11 @@ export default function DharmaChat() {
   const [models, setModels] = useState<{ id: string; label: string }[]>([])
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [hydrated, setHydrated] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)   // ใช้เฉพาะจอเล็ก (drawer)
   const chatRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const sidebarRef = useRef<HTMLElement>(null)
+  const toggleRef = useRef<HTMLButtonElement>(null)
 
   // โหลดประวัติแชตจาก localStorage (ครั้งแรก)
   useEffect(() => {
@@ -265,6 +267,24 @@ export default function DharmaChat() {
       .catch(() => {})
   }, [])
 
+  // drawer: Escape ปิด + ย้าย focus เข้า drawer ตอนเปิด แล้วคืนให้ปุ่ม ☰ ตอนปิด
+  // ถ้าไม่ย้าย focus จะค้างอยู่บนปุ่ม ☰ ซึ่งตอนนั้นอยู่ใต้ backdrop
+  useEffect(() => {
+    if (!sidebarOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSidebarOpen(false) }
+    document.addEventListener("keydown", onKey)
+    // รอข้ามเฟรมก่อน focus — element ที่ยัง visibility:hidden รับ focus ไม่ได้
+    // และ .focus() ที่ล้มเหลวจะเงียบสนิท ไม่ throw
+    const raf = requestAnimationFrame(() =>
+      sidebarRef.current?.querySelector<HTMLElement>("button")?.focus()
+    )
+    return () => {
+      cancelAnimationFrame(raf)
+      document.removeEventListener("keydown", onKey)
+      toggleRef.current?.focus()   // บน desktop ปุ่มเป็น display:none → focus() ไม่ทำอะไร
+    }
+  }, [sidebarOpen])
+
   const active = conversations.find(c => c.id === activeId)
   const messages = active?.messages ?? []
 
@@ -281,11 +301,13 @@ export default function DharmaChat() {
     setActiveId(c.id)
     setShowSuggestions(true)
     setInput("")
+    setSidebarOpen(false)
   }, [])
 
   const selectChat = useCallback((id: string) => {
     setActiveId(id)
     setShowSuggestions(false)
+    setSidebarOpen(false)
   }, [])
 
   const deleteChat = useCallback((id: string) => {
@@ -404,21 +426,24 @@ export default function DharmaChat() {
       `}</style>
 
       {/* ── layout shell ── */}
-      <div style={{
-        display: "flex", height: "100dvh", overflow: "hidden",
-        fontFamily: "'Sarabun', sans-serif",
-      }}>
+      <div className="shell" style={{ fontFamily: "'Sarabun', sans-serif" }}>
+
+        {/* อยู่นอก aside เพราะบนมือถือ aside เป็น fixed+transform จึงกลายเป็น
+            containing block ทำให้แถบถูกบีบเหลือเท่า drawer แล้วเลื่อนหายไปด้วย */}
+        <LotusStrip />
+
+        {/* backdrop ปิด drawer (จอเล็กเท่านั้น) */}
+        {sidebarOpen && (
+          <div className="sidebar-backdrop" aria-hidden onClick={() => setSidebarOpen(false)} />
+        )}
 
         {/* ── sidebar ── */}
-        <aside style={{
-          width: 260, flexShrink: 0,
+        <aside ref={sidebarRef} className={sidebarOpen ? "sidebar open" : "sidebar"} style={{
           background: "var(--bark)",
           display: "flex", flexDirection: "column",
           padding: "0",
           borderRight: "1px solid var(--bark-mid)",
         }}>
-          <LotusStrip />
-
           {/* brand */}
           <div style={{ padding: "28px 20px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -534,16 +559,32 @@ export default function DharmaChat() {
           }} />
 
           {/* header */}
-          <header style={{
-            padding: "14px 24px",
+          <header className="chat-header" style={{
             borderBottom: "1px solid rgba(200,148,58,0.15)",
-            display: "flex", alignItems: "center", gap: 12,
+            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
             background: "rgba(249,244,234,0.8)",
             backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             position: "relative", zIndex: 1,
           }}>
+            {/* ปุ่มเปิด drawer — ซ่อนบน desktop ด้วย CSS */}
+            <button
+              ref={toggleRef}
+              className="sidebar-toggle"
+              onClick={() => setSidebarOpen(v => !v)}
+              aria-label="เปิดรายการแชต"
+              aria-expanded={sidebarOpen}
+              style={{
+                alignItems: "center", justifyContent: "center",
+                width: 34, height: 34, flexShrink: 0,
+                background: "transparent",
+                border: "1px solid rgba(200,148,58,0.35)",
+                borderRadius: 9, cursor: "pointer",
+                color: "var(--amber)", fontSize: 16, lineHeight: 1,
+              }}
+            >☰</button>
             <div style={{
-              width: 8, height: 8, borderRadius: "50%",
+              width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
               background: "var(--saffron)",
               boxShadow: "0 0 8px var(--saffron)",
             }} />
@@ -554,7 +595,7 @@ export default function DharmaChat() {
             }}>
               ธรรมดู
             </span>
-            <span style={{ fontSize: 12, color: "var(--gold)", marginLeft: 4 }}>
+            <span className="header-tagline" style={{ fontSize: 12, color: "var(--gold)", marginLeft: 4 }}>
               — อ้างอิงพระไตรปิฎกจริง
             </span>
 
@@ -582,9 +623,8 @@ export default function DharmaChat() {
           </header>
 
           {/* chat messages */}
-          <div ref={chatRef} style={{
+          <div ref={chatRef} className="chat-scroll" style={{
             flex: 1, overflowY: "auto",
-            padding: "24px 28px",
             display: "flex", flexDirection: "column", gap: 18,
             position: "relative", zIndex: 1,
           }}>
@@ -593,8 +633,7 @@ export default function DharmaChat() {
 
           {/* quick suggestions (first load) */}
           {showSuggestions && messages.length <= 1 && (
-            <div style={{
-              padding: "0 28px 12px",
+            <div className="suggestions" style={{
               display: "flex", gap: 8, flexWrap: "wrap",
               animation: "fadeIn 0.4s ease",
               position: "relative", zIndex: 1,
@@ -626,11 +665,11 @@ export default function DharmaChat() {
           )}
 
           {/* input area */}
-          <div style={{
-            padding: "12px 24px 20px",
+          <div className="composer" style={{
             borderTop: "1px solid rgba(200,148,58,0.15)",
             background: "rgba(249,244,234,0.9)",
             backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             position: "relative", zIndex: 1,
           }}>
             <div style={{
@@ -652,9 +691,10 @@ export default function DharmaChat() {
                 onKeyDown={handleKey}
                 placeholder="ถามเรื่องธรรมะ การปฏิบัติ หรือการใช้ชีวิตตามหลักพุทธ…"
                 rows={1}
+                className="composer-input"
                 style={{
-                  flex: 1, resize: "none", border: "none", outline: "none",
-                  fontSize: 14, fontFamily: "'Sarabun', sans-serif", fontWeight: 300,
+                  flex: 1, minWidth: 0, resize: "none", border: "none", outline: "none",
+                  fontFamily: "'Sarabun', sans-serif", fontWeight: 300,
                   color: "var(--ink)", background: "transparent",
                   lineHeight: 1.6, height: 44, maxHeight: 120,
                   padding: "8px 0",
