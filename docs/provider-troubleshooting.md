@@ -4,6 +4,10 @@
 
 Gemini เดิมใช้ `gemini-2.0-flash` ซึ่งเอกสาร Google ระบุ shutdown วันที่ 2026-06-01: https://ai.google.dev/gemini-api/docs/deprecations
 
+Logs production เวลา 14:43:45 (Asia/Bangkok) ยืนยัน Groq `kind=model,status=404` เอกสาร Groq ระบุว่า Llama 3.3 70B และ Llama 3.1 8B ปิดสำหรับ free/developer tier วันที่ 2026-08-16 จึงเปลี่ยนตัวตอบเป็น `openai/gpt-oss-120b` และตัวแปลงคำค้นเป็น `openai/gpt-oss-20b` พร้อม reasoning effort ต่ำและเผื่อ output token สำหรับ reasoning: https://console.groq.com/docs/deprecations
+
+ตัวแปร `GROQ_MODEL` และ `GROQ_REWRITE_MODEL` ปรับได้ หาก Vercel ตั้งชื่อเก่าไว้อย่าง explicit ต้องเปลี่ยนหรือลบ override ด้วย
+
 ## ตั้งค่าบน Vercel
 
 เปิด Project → Settings → Environment Variables ตั้ง `GEMINI_MODEL` เป็นโมเดลที่บัญชีเข้าถึงได้ (ค่าเริ่มต้นใหม่ `gemini-3.5-flash-lite`) และ `GROQ_MODEL` หากต้องเปลี่ยนโมเดล Groq ตรวจโควตาและ billing ของบัญชีก่อนใช้ โมเดลหรือ key ที่ตั้งไว้ไม่ได้เป็นหลักฐานว่าคำขอจะสำเร็จ ไม่มีการเปิด billing หรือเพิ่ม provider ใหม่ในงานนี้

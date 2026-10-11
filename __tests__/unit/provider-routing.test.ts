@@ -1,4 +1,5 @@
 import { routeToProvider, ProvidersUnavailable } from "../../lib/providers"
+import { searchSutta } from "../../lib/suttacentral"
 
 describe("provider failure handling", () => {
   const env = { ...process.env }
@@ -10,6 +11,30 @@ describe("provider failure handling", () => {
   })
   afterEach(() => { process.env = env; global.fetch = originalFetch; jest.restoreAllMocks() })
   const messages = [{ role: "user" as const, content: "เมตตา" }]
+
+  it("rewrites Thai queries with the supported small model before searching", async () => {
+    delete process.env.GROQ_REWRITE_MODEL
+    const fetchMock = jest.fn().mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: "truthfulness" } }] })))
+      .mockResolvedValue(new Response(JSON.stringify({ hits: [], total: 0 })))
+    global.fetch = fetchMock
+    expect(await searchSutta("การพูดความจริงมีประโยชน์อย่างไร")).toEqual([])
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.model).toBe("openai/gpt-oss-20b")
+    expect(body.reasoning_effort).toBe("low")
+    expect(fetchMock.mock.calls[1][0]).toContain("truthfulness")
+  })
+
+  it("uses the supported Groq replacement with a reasoning token allowance", async () => {
+    process.env.PROVIDER_ORDER = "groq"
+    delete process.env.GROQ_MODEL
+    const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: "คำตอบ" } }] })))
+    global.fetch = fetchMock
+    expect(await routeToProvider(messages, "context")).toEqual({ text: "คำตอบ", provider: "groq" })
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.model).toBe("openai/gpt-oss-120b")
+    expect(body.reasoning_effort).toBe("low")
+    expect(body.max_tokens).toBeGreaterThanOrEqual(2048)
+  })
 
   it("uses a configurable current Gemini model and passes its key in a header", async () => {
     process.env.PROVIDER_ORDER = "gemini"

@@ -27,7 +27,7 @@ function checkResponse(res: Response): void {
   throw new ProviderFailure(kind, res.status)
 }
 const geminiModel = () => process.env.GEMINI_MODEL || "gemini-3.5-flash-lite"
-const groqModel = () => process.env.GROQ_MODEL || "llama-3.3-70b-versatile"
+const groqModel = () => process.env.GROQ_MODEL || "openai/gpt-oss-120b"
 
 // ---- Azure OpenAI (gpt-4o-mini) — ใช้ Azure student credit ----
 async function callAzure(
@@ -72,7 +72,8 @@ async function callGroq(
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify({
       model: groqModel(),
-      max_tokens: 800,
+      max_tokens: 2048,
+      ...(groqModel().startsWith("openai/gpt-oss-") ? { reasoning_effort: "low" } : {}),
       temperature: 0.3, // ลด random sampling กัน mojibake ในสคริปต์ทรัพยากรน้อย (เช่นไทย) ที่ Llama 3 เป็นบ้าง
       stream: Boolean(onToken),
       messages: [{ role: "system", content: systemPrompt }, ...messages],
