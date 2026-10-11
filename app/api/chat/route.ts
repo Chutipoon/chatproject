@@ -2,7 +2,7 @@
 // เพิ่ม: streaming response (SSE), shared cache/rate-limit (Redis), Azure tier
 
 import { NextRequest, NextResponse } from "next/server"
-import { routeToProvider, availableProviders, ChatMessage } from "@/lib/providers"
+import { routeToProvider, availableProviders, ChatMessage, ProvidersUnavailable } from "@/lib/providers"
 import { getCached, setCached, checkRateLimit } from "@/lib/cache"
 import { searchSutta, buildSystemPrompt, groundingLevel } from "@/lib/suttacentral"
 
@@ -101,6 +101,15 @@ export async function POST(req: NextRequest) {
 }
 
 function errMsg(err: any): string {
+  if (err instanceof ProvidersUnavailable) {
+    const active = err.failures.filter(f => f.kind !== "configuration")
+    if (!active.length) return "ยังไม่ได้ตั้งค่าผู้ให้บริการ AI กรุณาติดต่อผู้ดูแลระบบ"
+    if (active.some(f => f.kind === "rate_limit")) return "โควตา AI เต็มหรือส่งคำขอถี่เกินไป กรุณาลองใหม่ภายหลัง"
+    if (active.some(f => f.kind === "authentication")) return "การเชื่อมต่อ AI ไม่ผ่านการยืนยันสิทธิ์ กรุณาติดต่อผู้ดูแลระบบ"
+    if (active.some(f => f.kind === "model")) return "โมเดล AI ที่ตั้งค่าไว้ไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ"
+    if (active.some(f => f.kind === "timeout")) return "AI ตอบกลับไม่ทันเวลา กรุณาลองใหม่อีกครั้ง"
+    return "ผู้ให้บริการ AI ไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง"
+  }
   const m = err?.message || ""
   if (m.includes("rate-limited")) return "ระบบรับคำถามมากเกินไปในขณะนี้ กรุณารอ 1 นาทีแล้วลองใหม่"
   if (m === "RATE_LIMIT") return "AI กำลังถูกใช้งานหนัก กรุณารอสักครู่"
