@@ -91,8 +91,9 @@ async function rewriteThaiQuery(msg: string): Promise<string | null> {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        max_tokens: 30,
+        model: process.env.GROQ_REWRITE_MODEL || "openai/gpt-oss-20b",
+        max_tokens: 512,
+        ...((process.env.GROQ_REWRITE_MODEL || "openai/gpt-oss-20b").startsWith("openai/gpt-oss-") ? { reasoning_effort: "low" } : {}),
         temperature: 0,
         messages: [
           { role: "system", content: REWRITE_SYSTEM },
