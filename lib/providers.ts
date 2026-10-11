@@ -11,6 +11,24 @@ export interface ChatMessage {
 // รองรับ streaming ผ่าน callback onToken (optional)
 type OnToken = (chunk: string) => void
 
+type FailureKind = "configuration" | "authentication" | "rate_limit" | "model" | "upstream" | "timeout" | "network" | "empty"
+export class ProviderFailure extends Error {
+  constructor(public kind: FailureKind, public status?: number) { super(kind) }
+}
+export class ProvidersUnavailable extends Error {
+  constructor(public failures: { provider: string; kind: FailureKind; status?: number }[]) {
+    super("Providers unavailable")
+  }
+}
+function checkResponse(res: Response): void {
+  if (res.ok) return
+  const kind = res.status === 429 ? "rate_limit" : [401, 403].includes(res.status)
+    ? "authentication" : [400, 404, 410].includes(res.status) ? "model" : "upstream"
+  throw new ProviderFailure(kind, res.status)
+}
+const geminiModel = () => process.env.GEMINI_MODEL || "gemini-3.5-flash-lite"
+const groqModel = () => process.env.GROQ_MODEL || "llama-3.3-70b-versatile"
+
 // ---- Azure OpenAI (gpt-4o-mini) — ใช้ Azure student credit ----
 async function callAzure(
   messages: ChatMessage[],
@@ -34,8 +52,7 @@ async function callAzure(
     }),
     signal: AbortSignal.timeout(30000),
   })
-  if (res.status === 429) throw new Error("RATE_LIMIT")
-  if (!res.ok) throw new Error(`Azure error ${res.status}`)
+  checkResponse(res)
   return onToken ? readOpenAIStream(res, onToken) : extractOpenAI(await res.json())
 }
 
@@ -54,7 +71,7 @@ async function callGroq(
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: groqModel(),
       max_tokens: 800,
       temperature: 0.3, // ลด random sampling กัน mojibake ในสคริปต์ทรัพยากรน้อย (เช่นไทย) ที่ Llama 3 เป็นบ้าง
       stream: Boolean(onToken),
@@ -62,8 +79,7 @@ async function callGroq(
     }),
     signal: AbortSignal.timeout(15000),
   })
-  if (res.status === 429) throw new Error("RATE_LIMIT")
-  if (!res.ok) throw new Error(`Groq error ${res.status}`)
+  checkResponse(res)
   return onToken ? readOpenAIStream(res, onToken) : extractOpenAI(await res.json())
 }
 
@@ -82,10 +98,10 @@ async function callGemini(
   }))
   const action = onToken ? "streamGenerateContent?alt=sse&" : "generateContent?"
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:${action}key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel())}:${action}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents,
@@ -94,8 +110,7 @@ async function callGemini(
       signal: AbortSignal.timeout(20000),
     }
   )
-  if (res.status === 429) throw new Error("RATE_LIMIT")
-  if (!res.ok) throw new Error(`Gemini error ${res.status}`)
+  checkResponse(res)
   if (!onToken) {
     const data = await res.json()
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
@@ -191,32 +206,35 @@ export async function routeToProvider(
     azure: callAzure, groq: callGroq, gemini: callGemini,
   }
 
-  let lastErr: any
+  const failures: { provider: string; kind: FailureKind; status?: number }[] = []
   for (const name of order) {
     const fn = map[name]
     if (!fn) continue
+    let emitted = false
     try {
-      const text = await fn(messages, systemPrompt, onToken)
+      const text = await fn(messages, systemPrompt, onToken ? (chunk) => { emitted = true; onToken(chunk) } : undefined)
+      if (!text.trim()) throw new ProviderFailure("empty")
       return { text, provider: name }
     } catch (err: any) {
-      lastErr = err
-      const skip = err.message === "RATE_LIMIT" || err.message.startsWith("No ")
-      if (skip) continue
-      // network/parse error ของ provider นี้ → ลองตัวถัดไปด้วย (robust กว่าเดิม)
-      continue
+      const kind: FailureKind = err instanceof ProviderFailure ? err.kind
+        : err.message?.startsWith("No ") ? "configuration"
+        : ["TimeoutError", "AbortError"].includes(err.name) ? "timeout" : "network"
+      const failure = { provider: name, kind, status: err instanceof ProviderFailure ? err.status : undefined }
+      failures.push(failure)
+      // Never log keys, request URLs, prompts or upstream response bodies.
+      console.error("AI_PROVIDER_FAILURE", failure)
+      if (emitted) throw new ProvidersUnavailable(failures)
     }
   }
-  throw new Error(lastErr?.message === "RATE_LIMIT"
-    ? "All providers rate-limited"
-    : "All providers failed")
+  throw new ProvidersUnavailable(failures)
 }
 
 // รายชื่อโมเดลที่ "ตั้งค่าพร้อมใช้" (มี key) — ส่งให้ UI ทำ dropdown
 export function availableProviders(): { id: string; label: string }[] {
   const labels: Record<string, string> = {
     azure: "Azure GPT-4o-mini",
-    groq: "Groq Llama 3.3 70B",
-    gemini: "Gemini 2.0 Flash",
+    groq: `Groq ${groqModel()}`,
+    gemini: `Gemini ${geminiModel()}`,
   }
   const configured: Record<string, boolean> = {
     azure: Boolean(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_KEY && process.env.AZURE_OPENAI_DEPLOYMENT),

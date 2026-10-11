@@ -417,7 +417,7 @@ export default function DharmaChat() {
           if (evt.type === "sources") { srcs = evt.sources || []; apply({ sources: srcs, grounding: evt.grounding }) }
           else if (evt.type === "token") { acc += evt.text; apply({ loading: false, text: acc, sources: srcs }) }
           else if (evt.type === "done") { prov = evt.provider; apply({ loading: false, text: acc, provider: prov, sources: srcs }) }
-          else if (evt.type === "error") { apply({ loading: false, text: evt.error || "เกิดข้อผิดพลาด" }) }
+          else if (evt.type === "error") { apply({ loading: false, text: evt.error || "เกิดข้อผิดพลาด", sources: [], grounding: undefined, provider: undefined }) }
         }
       }
     } catch {
